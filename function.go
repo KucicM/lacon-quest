@@ -1,4 +1,5 @@
-package quest
+// Package p contains an HTTP Cloud Function.
+package p
 
 import (
 	"bytes"
@@ -15,11 +16,26 @@ import (
 )
 
 func ProcessQuest(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers for the preflight request
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Max-Age", "3600")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	// Set CORS headers for the main request.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	var msg struct {
 		Message string `json:"message"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body) // Log the request body
+
+	if err := json.Unmarshal(body, &msg); err != nil {
 		log.Fatalf("json.NewDecoder: Request %v", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -32,7 +48,7 @@ func ProcessQuest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sha := hash(msg.Message)
-	log.Printf("Msg: %s, sha: %s\n", msg.Message, sha)
+	log.Printf("Msg: %s, sha: %s\n", string(body), sha)
 
 	payload, err := createPayload(msg.Message)
 	if err != nil {
